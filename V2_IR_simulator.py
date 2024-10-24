@@ -1,5 +1,5 @@
 import streamlit as st
-
+from streamlit import session_state as ss
 
 from openfisca_core import reforms, periods
 from openfisca_france.model.base import *
@@ -17,6 +17,11 @@ import plotly.io as pio
 
 IR_one_shot = None
 
+step = 100
+round_num = -2
+
+def round_to(num, round_num=round_num):
+    return int(np.round(num, round_num))
 
 # Modification bareme 2024 (projet de loi de finances 2025)
 # https://www.boursier.com/patrimoine/impots/actualites/impot-sur-le-revenu-les-nouveaux-baremes-2025-pour-le-calcul-de-la-decote-et-des-avantages-familiaux-8983.html#:~:text=La%20décote%20consiste%20à%20réduire,les%20célibataires%2C%20divorcés%20ou%20veufs.
@@ -56,8 +61,11 @@ with st.sidebar:
     nb_enfants = st.selectbox("Nombre d'enfants à charge", (0, 1, 2, 3, 4, 5))
     nb_alternes = st.selectbox("Nombre d'enfants en garde alternée", (0, 1, 2, 3, 4, 5))
     col1, col2 = st.columns(2, vertical_alignment='bottom')
-    salary = col1.number_input("Salaire", 40000)
+    salary = col1.number_input("Salaire", value=50000, step=step)
     button_run = col2.button("Calcul", icon="😰", use_container_width=True)
+    plafond_PER = st.number_input("Plafond PER", value=16000)
+    
+    ss['salary'] = salary
 
     
 
@@ -86,9 +94,11 @@ if button_run:
     CASE['individus'] = individus
     CASE['foyers_fiscaux'] = foyer_fiscal
     
-    length_simu = int(salary * 1.2)
+    #length_simu = int(np.round(salary * 1.2, round_num))
+    length_simu = round_to(salary * 1.2)
+    length_simu_n = int(length_simu/step)
     
-    CASE['axes']= [[{'count':length_simu, 'name':'rbg', 'min':0, 'max':length_simu,
+    CASE['axes']= [[{'count':length_simu_n, 'name':'rbg', 'min':0, 'max':length_simu,
                      'period': annee_simulation}]]
         
     CASE['familles'] = {'famille1': {}}
@@ -108,25 +118,25 @@ if button_run:
     nb_part_one_shot = simulation_evol.calculate('nbptr', str(annee_simulation))[0]
 
     sdb = simulation_evol.calculate_add('rbg', annee_simulation)
-    salaire_foyer = sdb.reshape(int(length_simu),n_reshape- max(0, nb_adultes - 1)).sum(1)
+    salaire_foyer = sdb.reshape(int(length_simu_n),n_reshape- max(0, nb_adultes - 1)).sum(1)
     
     income_tax_evol = simulation_evol.calculate('ip_net', annee_simulation)
-    income_tax_evol = income_tax_evol.reshape(int(length_simu),n_reshape - max(0, nb_adultes - 1)).sum(1) 
+    income_tax_evol = income_tax_evol.reshape(int(length_simu_n),n_reshape - max(0, nb_adultes - 1)).sum(1) 
     
     avantage_qf_evol = -simulation_evol.calculate('avantage_qf', str(annee_simulation))
-    avantage_qf_evol = avantage_qf_evol.reshape(int(length_simu),n_reshape- max(0, nb_adultes - 1)).sum(1)
+    avantage_qf_evol = avantage_qf_evol.reshape(int(length_simu_n),n_reshape- max(0, nb_adultes - 1)).sum(1)
     
     TMI_evol = simulation_evol.calculate('ir_taux_marginal', str(annee_simulation))
-    TMI_evol = TMI_evol.reshape(int(length_simu),n_reshape- max(0, nb_adultes - 1)).sum(1)
+    TMI_evol = TMI_evol.reshape(int(length_simu_n),n_reshape- max(0, nb_adultes - 1)).sum(1)
     
     taux_moyen_imposition_evol = simulation_evol.calculate('taux_moyen_imposition', str(annee_simulation))
-    taux_moyen_imposition_evol = taux_moyen_imposition_evol.reshape(int(length_simu),n_reshape- max(0, nb_adultes - 1)).sum(1)
+    taux_moyen_imposition_evol = taux_moyen_imposition_evol.reshape(int(length_simu_n),n_reshape- max(0, nb_adultes - 1)).sum(1)
     
     IR_ss_qf_evol = simulation_evol.calculate('ir_ss_qf', str(annee_simulation))
-    IR_ss_qf_evol = IR_ss_qf_evol.reshape(int(length_simu),n_reshape - max(0, nb_adultes - 1)).sum(1)
+    IR_ss_qf_evol = IR_ss_qf_evol.reshape(int(length_simu_n),n_reshape - max(0, nb_adultes - 1)).sum(1)
     
     decote_evol = simulation_evol.calculate('decote_gain_fiscal', str(annee_simulation))
-    decote_evol = decote_evol.reshape(int(length_simu),n_reshape - max(0, nb_adultes - 1)).sum(1)
+    decote_evol = decote_evol.reshape(int(length_simu_n),n_reshape - max(0, nb_adultes - 1)).sum(1)
     
     df_income_tax_evol = pd.DataFrame.from_dict({'Revenu': salaire_foyer, 'IR': income_tax_evol,
                                                  'TMI': TMI_evol,
@@ -135,8 +145,10 @@ if button_run:
                                                  'Reduction QF': avantage_qf_evol,
                                                  'Decote': decote_evol})
     
-    df_income_tax_evol['Revenu'] = df_income_tax_evol['Revenu'].apply(int)
-    df_one_shot = df_income_tax_evol[df_income_tax_evol['Revenu'] == int(salary * .9)]
+    df_income_tax_evol['Revenu'] = df_income_tax_evol['Revenu'].apply(round_to)#.apply(int)
+    ss['df_income_tax_evol'] = df_income_tax_evol
+
+    df_one_shot = df_income_tax_evol[df_income_tax_evol['Revenu'] == int(np.round(salary * .9, round_num))]
     
     # Montant optimal PER
     CASE_PER = CASE.copy()
@@ -166,13 +178,28 @@ if button_run:
     
     df_optimal_PER = df_income_tax_PER[df_income_tax_PER['TMI'] == .11].head(1)
     
-    versement_optimal_PER = df_optimal_PER['Versement_PER'].values[0]
-    impot_PER = df_optimal_PER['IR'].values[0]
+    ss['df_income_tax_PER'] = df_income_tax_PER
+    
+    if len(df_optimal_PER >0):
+        versement_optimal_PER = df_optimal_PER['Versement_PER'].values[0]
+        impot_PER = df_optimal_PER['IR'].values[0]
+    else:
+        versement_optimal_PER = 0.
+        impot_PER = 0.
+    
+    versement_PER_TMI = versement_optimal_PER
+    
+    if(versement_optimal_PER > plafond_PER):
+        df_optimal_PER = df_income_tax_PER[df_income_tax_PER['Versement_PER'] == plafond_PER].head(1)
+        
+        versement_optimal_PER = df_optimal_PER['Versement_PER'].values[0]
+        impot_PER = df_optimal_PER['IR'].values[0]
+        
 
     def format_space_thousand_sep(num, trailing=" €"):
         return '{:,}'.format(np.round(num, 0)).replace(',', ' ') + trailing
 
-tab_one_shot, tab_PER = st.tabs(["Calcul de l'IR", "Versement Optimal PER"])
+tab_one_shot, tab_PER_effet, tab_PER_optim = st.tabs(["Calcul de l'IR", "Effet Versement PER","Versement Optimal PER"])
 with tab_one_shot:
     if(button_run):
         Revenu_one_shot = df_one_shot['Revenu'].values[0]
@@ -221,13 +248,16 @@ with tab_one_shot:
             yaxis_ticksuffix = '€')
         st.plotly_chart(fig)
         
-with tab_PER:
+with tab_PER_optim:
     if(button_run):
         
+        versement_PER_preco = min(versement_optimal_PER, plafond_PER)
+        
         col1_PER, col2_PER, col3_PER = st.columns(3)
-        col1_PER.metric("Versement Optimal PER", format_space_thousand_sep(versement_optimal_PER))
+        col1_PER.metric("Versement Optimal PER", format_space_thousand_sep(versement_PER_preco))
         col2_PER.metric("Impot avec versement", format_space_thousand_sep(impot_PER), "")
         col3_PER.metric("Economie d'impots", format_space_thousand_sep(IR_one_shot - impot_PER), "")
+        col1_PER.metric("Versement Optimal TMI", format_space_thousand_sep(versement_PER_TMI))
         
         fig_PER_evol = px.line(df_income_tax_evol, x='Revenu', y=['IR'])
 
@@ -240,7 +270,7 @@ with tab_PER:
                         size=10
                     ),
                     name='IR actuel')
-        fig_PER_evol.add_scatter(x=[salary * .9 - versement_optimal_PER],
+        fig_PER_evol.add_scatter(x=[salary * .9 - versement_PER_preco],
                                  y=[impot_PER],
                                  text=format_space_thousand_sep(IR_one_shot),
                                  marker=dict(
@@ -255,6 +285,49 @@ with tab_PER:
 
         fig_tmi_PER = px.line(df_income_tax_PER, x='Versement_PER', y=['TMI'])
         st.plotly_chart(fig_tmi_PER)
+        
+@st.fragment()
+def versement_PER_effect_fragment():
+    versement_PER_input = st.slider("Versement PER", min_value=0, max_value=int(salary * 0.9), value=0, step=100)
+
+    df_income_tax_PER = ss['df_income_tax_PER']
+    df_income_tax_evol = ss['df_income_tax_evol']
+
+
+    df_versement_PER = df_income_tax_PER[df_income_tax_PER['Versement_PER'] == versement_PER_input].head(1)
+    IR_versement_PER = df_versement_PER['IR'].values[0]
+    
+    col1_vers_PER, col2_vers_PER, col3_vers_PER = st.columns(3)
+    col1_vers_PER.metric("Versement PER", format_space_thousand_sep(versement_PER_input))
+    col2_vers_PER.metric("Impot avec versement", format_space_thousand_sep(IR_versement_PER), "")
+    col3_vers_PER.metric("Economie d'impots", format_space_thousand_sep(IR_one_shot - IR_versement_PER), "")
+    col1_vers_PER.metric("Effort d'Epargne", format_space_thousand_sep(versement_PER_input-(IR_one_shot - IR_versement_PER)))
+        
+    
+    fig_PER_versement = px.line(df_income_tax_evol, x='Revenu', y=['IR'])
+
+    if IR_one_shot is not None:
+        fig_PER_versement.add_scatter(x=[salary * .9],
+                y=[IR_one_shot],
+                text=format_space_thousand_sep(IR_one_shot),
+                marker=dict(
+                    color='red',
+                    size=10
+                ),
+                name='IR actuel')
+    fig_PER_versement.add_scatter(x=[salary * .9 - versement_PER_input],
+                                y=[IR_versement_PER],
+                                text=format_space_thousand_sep(IR_versement_PER),
+                                marker=dict(
+                                    color='green',
+                                    size=10
+                                    ),
+                                name='IR avec versement')
+    st.plotly_chart(fig_PER_versement)
+        
+with tab_PER_effet:
+    if(button_run):
+        versement_PER_effect_fragment()
 
         
 
