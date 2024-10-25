@@ -61,10 +61,11 @@ with st.sidebar:
     nb_enfants = st.selectbox("Nombre d'enfants à charge", (0, 1, 2, 3, 4, 5))
     nb_alternes = st.selectbox("Nombre d'enfants en garde alternée", (0, 1, 2, 3, 4, 5))
     col1, col2 = st.columns(2, vertical_alignment='bottom')
-    salary = col1.number_input("Salaire", value=50000, step=step)
+    salary = col1.number_input("Salaire annuel net", value=50000, step=step)
     button_run = col2.button("Calcul", icon="😰", use_container_width=True)
     plafond_PER = st.number_input("Plafond PER", value=16000)
-    
+    with st.expander("Options"):
+        salary_max_simu = st.number_input("Salaire max simulation", value = salary, step=step)
     ss['salary'] = salary
 
     
@@ -95,7 +96,7 @@ if button_run:
     CASE['foyers_fiscaux'] = foyer_fiscal
     
     #length_simu = int(np.round(salary * 1.2, round_num))
-    length_simu = round_to(salary * 1.2)
+    length_simu = round_to(max(salary * 1.2, salary_max_simu))
     length_simu_n = int(length_simu/step)
     
     CASE['axes']= [[{'count':length_simu_n, 'name':'rbg', 'min':0, 'max':length_simu,
