@@ -153,18 +153,18 @@ def run_all_simulations(annee_simulation, nb_adultes, parent_isole, nb_enfants, 
     salaire_foyer = sdb.reshape(int(length_simu_n), n_reshape)[:, :nb_adultes].sum(axis=1)
     
     # Foyer-level variables are broadcast to declarants. We reshape and take the value from the first person.
-    income_tax_evol = simulation_evol.calculate('ip_net', annee_simulation).reshape(int(length_simu_n), nb_enfants + 1 )[:, 0]
+    income_tax_evol = simulation_evol.calculate('ip_net', annee_simulation).reshape(int(length_simu_n), nb_adultes)[:, 0]
     
-    avantage_qf_evol = -simulation_evol.calculate('avantage_qf', str(annee_simulation)).reshape(int(length_simu_n), nb_enfants + 1)[:, 0]
+    avantage_qf_evol = -simulation_evol.calculate('avantage_qf', str(annee_simulation)).reshape(int(length_simu_n), nb_adultes)[:, 0]
     
-    TMI_evol = simulation_evol.calculate('ir_taux_marginal', str(annee_simulation)).reshape(int(length_simu_n), nb_enfants + 1)[:, 0]
-    ir_tranche_evol = simulation_evol.calculate('ir_tranche', str(annee_simulation)).reshape(int(length_simu_n), nb_enfants + 1)[:, 0]
+    TMI_evol = simulation_evol.calculate('ir_taux_marginal', str(annee_simulation)).reshape(int(length_simu_n), nb_adultes)[:, 0]
+    ir_tranche_evol = simulation_evol.calculate('ir_tranche', str(annee_simulation)).reshape(int(length_simu_n), nb_adultes)[:, 0]
     
-    taux_moyen_imposition_evol = simulation_evol.calculate('taux_moyen_imposition', str(annee_simulation)).reshape(int(length_simu_n), nb_enfants + 1)[:, 0]
+    taux_moyen_imposition_evol = simulation_evol.calculate('taux_moyen_imposition', str(annee_simulation)).reshape(int(length_simu_n), nb_adultes)[:, 0]
     
-    IR_ss_qf_evol = simulation_evol.calculate('ir_ss_qf', str(annee_simulation)).reshape(int(length_simu_n), nb_enfants + 1)[:, 0]
+    IR_ss_qf_evol = simulation_evol.calculate('ir_ss_qf', str(annee_simulation)).reshape(int(length_simu_n), nb_adultes)[:, 0]
     
-    decote_evol = simulation_evol.calculate('decote_gain_fiscal', str(annee_simulation)).reshape(int(length_simu_n), nb_enfants + 1)[:, 0]
+    decote_evol = simulation_evol.calculate('decote_gain_fiscal', str(annee_simulation)).reshape(int(length_simu_n), nb_adultes)[:, 0]
     
     df_income_tax_evol = pd.DataFrame.from_dict({'Revenu': salaire_foyer, 'IR': income_tax_evol,
                                                  'TMI': TMI_evol,
@@ -199,11 +199,11 @@ def run_all_simulations(annee_simulation, nb_adultes, parent_isole, nb_enfants, 
     # The x-axis is the total PER payment from declarants
     versement_PER = versement_PER.reshape(int(length_simu_PER), n_reshape)[:, :nb_adultes].sum(axis=1)
     
-    income_tax_PER = simulation_PER.calculate('ip_net', annee_simulation).reshape(int(length_simu_PER), nb_enfants + 1)[:, 0]
-    TMI_PER = simulation_PER.calculate('ir_taux_marginal', annee_simulation).reshape(int(length_simu_PER), nb_enfants + 1)[:, 0]
-    ir_tranche_PER = simulation_PER.calculate('ir_tranche', annee_simulation).reshape(int(length_simu_PER), nb_enfants + 1)[:, 0]
-
-    df_income_tax_PER = pd.DataFrame.from_dict({'Versement_PER': versement_PER,
+    income_tax_PER = simulation_PER.calculate('ip_net', annee_simulation).reshape(int(length_simu_PER), nb_adultes)[:, 0]
+    TMI_PER = simulation_PER.calculate('ir_taux_marginal', annee_simulation).reshape(int(length_simu_PER), nb_adultes)[:, 0]
+    ir_tranche_PER = simulation_PER.calculate('ir_tranche', annee_simulation).reshape(int(length_simu_PER), nb_adultes)[:, 0]
+    
+    df_income_tax_PER = pd.DataFrame.from_dict({'Versement_PER': versement_PER, 
                                                 'IR': income_tax_PER,
                                                 'TMI': TMI_PER,
                                                 'ir_tranche': ir_tranche_PER})
